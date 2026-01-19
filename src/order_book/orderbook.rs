@@ -1,12 +1,12 @@
-use std::{any, collections::BTreeMap};
-use crate::order_book::types::{CancelOrder, NewOrder, Order, OrderType, PriceLevel};
+use std::{any, collections::{BTreeMap, HashMap}};
+use crate::order_book::types::{CancelOrder, ModifyOrder, NewOrder, OrderNode, OrderRegistry, OrderType, PriceLevel};
 use uuid::Uuid;
 
 #[derive(Debug)]
 pub struct OrderBook{
     pub asset_id : String,
     _ask : HalfBook,
-    _bid : HalfBook 
+    _bid : HalfBook
 }
 impl OrderBook {
     pub fn new (name : String,) -> Self{
@@ -24,114 +24,219 @@ impl OrderBook {
         // entry_handle.or_insert(2); -->  this consumes the entry handle given by entry and finalizes the action at the already located position
         // if the key exist at then do nothing, return mutable reference to existing value. if doesn't exist then insert the value 100 and return mut ref to it.
 
-                let order = Order{
-                    order_id : Uuid::new_v4(),
-                    order_type : new_order.order_type,
-                    initial_quantity : new_order.quantity,
-                    current_quantity : new_order.quantity,
-                    market_limit : None
-                };
-
                 if new_order.is_buy_side {
-                    if let Err(error) = self.create_buy_order(order, new_order.price.unwrap()){
+                    if let Err(error) = self.create_buy_order(new_order){
                         //log the error
                     };
                     Ok(())
                 }
                 else {
-                    if let Err(error) = self.create_sell_order(order, new_order.price.unwrap()){
+                    if let Err(error) = self.create_sell_order(new_order){
                         // log the error
                     };
                     Ok(())
                 }
     }
 
-    pub fn create_buy_order(&mut self, order : Order, price : u32) -> Result<(), anyhow::Error>{
+    pub fn create_buy_order(&mut self, new_order : NewOrder) -> Result<(), anyhow::Error>{
         
-            // before creating pricelevel check for exsiting value
-            if let Some(existing_index) = self._bid._price_map.get(&price){
-                if let Some(unconfirmed_price_level) = self._bid._price_level.get_mut(*existing_index){ // get_mut returns you Option<&mut V>
-                    if let Some(existing_price_level) = unconfirmed_price_level{
-                        existing_price_level.insert(order);
-                        return Ok(()); // we must exit as soon as the order is inserted into existing price_level
-                    }
-                };
-            }
-            let mut price_level = PriceLevel::new();
-            price_level.insert(order);
+        let mut order = OrderNode { order_id: new_order.order_id, 
+            initial_quantity: new_order.quantity, 
+            current_quantity: new_order.quantity, 
+            market_limit: new_order.price, 
+            next: None, 
+            prev: None 
+        };
+
+        if let Some(price_level) = self._bid._price_map.get_mut(&new_order.price){
+            order.prev = Some(price_level.tail);
             if let Some(free_index) = self._bid._free_list.pop(){
-                self._bid._price_level.insert(free_index, Some(price_level));
-                self._bid._price_map.entry(price).or_insert(free_index);
+                self._bid._order_pool.insert(free_index, Some(order));
+                self._bid.order_registry.insert(new_order.order_id, free_index);
+                price_level.tail = free_index;
+                if let Some(prev_order) = self._bid._order_pool.get_mut(price_level.tail).unwrap(){
+                    prev_order.next = Some(free_index);
+                };
                 return Ok(());
             }
-            self._bid._price_level.push(Some(price_level));
-            let index = self._bid._price_level.len() - 1;
-            self._bid._price_map.entry(price).or_insert(index);
+            self._bid._order_pool.push(Some(order));
+            let new_tail = self._bid._order_pool.len() - 1;
+            self._bid.order_registry.insert(new_order.order_id, new_tail);
+            price_level.tail = new_tail;
+            if let Some(prev_order) = self._bid._order_pool.get_mut(price_level.tail).unwrap(){
+                prev_order.next = Some(new_tail);
+            };
+            return Ok(());
+        }
+
+        let mut new_price_level = PriceLevel{
+            head : 0,
+            tail : 0,
+            order_count : 0,
+            total_quantity : 0
+        };
+        if let Some(free_index) = self._bid._free_list.pop(){
+            self._bid._order_pool.insert(free_index, Some(order));
+            self._bid.order_registry.insert(new_order.order_id, free_index);
+            new_price_level.head = free_index;
+            new_price_level.tail = free_index;
+            new_price_level.order_count += 1;
+            new_price_level.total_quantity += new_order.quantity;
+            self._bid._price_map.entry(new_order.price).or_insert(new_price_level);
+            return Ok(())
+        }
+        self._bid._order_pool.push(Some(order));
+        let new_index = self._bid._order_pool.len()-1;
+        self._bid.order_registry.insert(new_order.order_id, new_index);
+        new_price_level.head = new_index;
+        new_price_level.tail = new_index;
+        new_price_level.order_count += 1;
+        new_price_level.total_quantity += new_order.quantity;
+        self._bid._price_map.entry(new_order.price).or_insert(new_price_level);
         
         Ok(())
     }
-    pub fn create_sell_order(&mut self, order : Order, price : u32) -> Result<(), anyhow::Error>{
-        // before creating pricelevel check for exsiting value
-            if let Some(existing_index) = self._ask._price_map.get(&price){
-                if let Some(unconfirmed_price_level) = self._ask._price_level.get_mut(*existing_index){ // get_mut returns you Option<&mut V>
-                    if let Some(existing_price_level) = unconfirmed_price_level{
-                        existing_price_level.insert(order);
-                        return Ok(()); // we must exit as soon as the order is inserted into existing price_level
-                    }
-                };
-            }
-            let mut price_level = PriceLevel::new();
-            price_level.insert(order);
+    pub fn create_sell_order(&mut self, new_order : NewOrder) -> Result<(), anyhow::Error>{
+        let mut order = OrderNode { order_id: new_order.order_id, 
+            initial_quantity: new_order.quantity, 
+            current_quantity: new_order.quantity, 
+            market_limit: new_order.price, 
+            next: None, 
+            prev: None 
+        };
+
+        if let Some(price_level) = self._ask._price_map.get_mut(&new_order.price){
+            order.prev = Some(price_level.tail);
             if let Some(free_index) = self._ask._free_list.pop(){
-                self._ask._price_level.insert(free_index, Some(price_level));
-                self._ask._price_map.entry(price).or_insert(free_index);
+                self._ask._order_pool.insert(free_index, Some(order));
+                self._ask.order_registry.insert(new_order.order_id, free_index);
+                price_level.tail = free_index;
+                if let Some(prev_order) = self._ask._order_pool.get_mut(price_level.tail).unwrap(){
+                    prev_order.next = Some(free_index);
+                };
                 return Ok(());
             }
-            self._ask._price_level.push(Some(price_level));
-            let index = self._ask._price_level.len() - 1;
-            self._ask._price_map.entry(price).or_insert(index);
-            Ok(())
+            self._ask._order_pool.push(Some(order));
+            let new_tail = self._ask._order_pool.len() - 1;
+            self._ask.order_registry.insert(new_order.order_id, new_tail);
+            price_level.tail = new_tail;
+            if let Some(prev_order) = self._ask._order_pool.get_mut(price_level.tail).unwrap(){
+                prev_order.next = Some(new_tail);
+            };
+            return Ok(());
+        }
+
+        let mut new_price_level = PriceLevel{
+            head : 0,
+            tail : 0,
+            order_count : 0,
+            total_quantity : 0
+        };
+        if let Some(free_index) = self._ask._free_list.pop(){
+            self._ask._order_pool.insert(free_index, Some(order));
+            self._ask.order_registry.insert(new_order.order_id, free_index);
+            new_price_level.head = free_index;
+            new_price_level.tail = free_index;
+            new_price_level.order_count += 1;
+            new_price_level.total_quantity += new_order.quantity;
+            self._ask._price_map.entry(new_order.price).or_insert(new_price_level);
+            return Ok(())
+        }
+        self._ask._order_pool.push(Some(order));
+        let new_index = self._ask._order_pool.len()-1;
+        self._ask.order_registry.insert(new_order.order_id, new_index);
+        new_price_level.head = new_index;
+        new_price_level.tail = new_index;
+        new_price_level.order_count += 1;
+        new_price_level.total_quantity += new_order.quantity;
+        self._ask._price_map.entry(new_order.price).or_insert(new_price_level);
+        
+        Ok(())
     }
     pub fn cancel_order(&mut self, order : CancelOrder) -> Result<(), anyhow::Error>{
         if order.is_buy_side {
-            if let Some(existing_index) = self._bid._price_map.get(&order.price){
-                if let Some(unconfirmed_price_level) = self._bid._price_level.get_mut(*existing_index){
-                    if let Some(existing_price_level) = unconfirmed_price_level{
-                        if let Err(error) = existing_price_level.remove(order){
-                            // add deletion error over here
-                        };
-                        return Ok(())
+           if self._bid.order_registry.order_exist(order.order_id){
+                if let Some(deleted_index) = self._bid.order_registry.delete_key(order.order_id){
+                    let (prev, next) = {
+                        let node = self._bid._order_pool[deleted_index].as_ref().unwrap();
+                        (node.prev, node.next)
+                    };
+                    if let Some(prev_index) = prev{
+                        if let Some(possible_prev_node) = self._bid._order_pool.get_mut(prev_index){
+                            if let Some(prev_node) = possible_prev_node{
+                                prev_node.next = next
+                            }
+                        }
                     }
+                    if let Some(next_index) = next{
+                        if let Some(possible_next_node) = self._bid._order_pool.get_mut(next_index){
+                            if let Some(next_node) = possible_next_node{
+                                next_node.prev = prev
+                            }
+                        }
+                    }
+                    self._bid._order_pool.insert(deleted_index, None);
+                    self._bid._free_list.push(deleted_index);
                 }
-            }
+           }
         } else {
-            if let Some(existing_index) = self._ask._price_map.get(&order.price){
-                if let Some(unconfirmed_price_level) = self._ask._price_level.get_mut(*existing_index){
-                    if let Some(existing_price_level) = unconfirmed_price_level{
-                        if let Err(error) = existing_price_level.remove(order){
-                            // add deletion error over here
-                        };
-                        return Ok(())
+           if self._ask.order_registry.order_exist(order.order_id){
+                if let Some(deleted_index) = self._ask.order_registry.delete_key(order.order_id){
+                    let (prev, next) = {
+                        let node = self._ask._order_pool[deleted_index].as_ref().unwrap();
+                        (node.prev, node.next)
+                    };
+                    if let Some(prev_index) = prev{
+                        if let Some(possible_prev_node) = self._ask._order_pool.get_mut(prev_index){
+                            if let Some(prev_node) = possible_prev_node{
+                                prev_node.next = next
+                            }
+                        }
                     }
+                    if let Some(next_index) = next{
+                        if let Some(possible_next_node) = self._ask._order_pool.get_mut(next_index){
+                            if let Some(next_node) = possible_next_node{
+                                next_node.prev = prev
+                            }
+                        }
+                    }
+                    self._ask._order_pool.insert(deleted_index, None);
+                    self._ask._free_list.push(deleted_index);
                 }
-            }
+           }
         }
         Ok(())
     }
-    pub fn modify_order(&mut self){
-        
+    pub fn modify_order(&mut self, order : ModifyOrder){
+        if order.is_buy_side{
+            if self._bid.order_registry.order_exist(order.order_id){
+                let idx = self._bid.order_registry.get_idx(order.order_id);
+                let order_node = {
+                    let node = self._bid._order_pool[*idx].as_ref().unwrap();
+                    node
+                };
+                if order.change_side{
+                    if let Err(e) = self.cancel_order(CancelOrder { order_id: order.order_id, is_buy_side: order.is_buy_side }){
+                        // log the fail message - "failed to cancel the modify order"
+                    };
+                    // succesfully cancelled the modify order
+                }
+                if order.new_price != order_node.market_limit
+            }
+        }
     }
 }
 
 #[derive(Debug)]
 pub struct HalfBook{
-    _price_map : BTreeMap<u32, usize>,
-    _price_level : Vec<Option<PriceLevel>>,
-    _free_list : Vec<usize> // we're storing the free indices from the price level to keep the cache lines hot.
+    _price_map : BTreeMap<u32, PriceLevel>,
+    _order_pool : Vec<Option<OrderNode>>,
+    _free_list : Vec<usize>, // we're storing the free indices from the price level to keep the cache lines hot.
+    order_registry : OrderRegistry
 }
 
 impl HalfBook {
     pub fn new() -> Self{
-        Self { _price_map: BTreeMap::new(), _price_level: Vec::new(), _free_list: Vec::new() }
+        Self { _price_map: BTreeMap::new(), _order_pool: Vec::new(), _free_list: Vec::new(), order_registry : OrderRegistry::new() }
     }
 }

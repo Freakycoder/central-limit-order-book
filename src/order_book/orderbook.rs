@@ -1,6 +1,5 @@
-use std::{any, collections::{BTreeMap, HashMap}};
+use std::{collections::{BTreeMap}};
 use crate::order_book::types::{CancelOrder, ModifyOrder, NewOrder, OrderNode, OrderRegistry, OrderType, PriceLevel};
-use uuid::Uuid;
 
 #[derive(Debug)]
 pub struct OrderBook{
@@ -25,13 +24,13 @@ impl OrderBook {
         // if the key exist at then do nothing, return mutable reference to existing value. if doesn't exist then insert the value 100 and return mut ref to it.
 
                 if new_order.is_buy_side {
-                    if let Err(error) = self.create_buy_order(new_order){
+                    if let Err(_) = self.create_buy_order(new_order){
                         //log the error
                     };
                     Ok(())
                 }
                 else {
-                    if let Err(error) = self.create_sell_order(new_order){
+                    if let Err(_) = self.create_sell_order(new_order){
                         // log the error
                     };
                     Ok(())

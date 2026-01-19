@@ -207,22 +207,63 @@ impl OrderBook {
         }
         Ok(())
     }
-    pub fn modify_order(&mut self, order : ModifyOrder){
+    pub fn modify_order(&mut self, order : ModifyOrder) -> Result<(), anyhow::Error>{
         if order.is_buy_side{
             if self._bid.order_registry.order_exist(order.order_id){
                 let idx = self._bid.order_registry.get_idx(order.order_id);
                 let order_node = {
-                    let node = self._bid._order_pool[*idx].as_ref().unwrap();
+                    let node = self._bid._order_pool[*idx].as_mut().unwrap();
                     node
                 };
-                if order.change_side{
-                    if let Err(e) = self.cancel_order(CancelOrder { order_id: order.order_id, is_buy_side: order.is_buy_side }){
+                if order.change_side || order.new_price != order_node.market_limit || order.new_quantity > order_node.initial_quantity{
+                    if let Err(_) = self.cancel_order(CancelOrder { order_id: order.order_id, is_buy_side: order.is_buy_side }){
                         // log the fail message - "failed to cancel the modify order"
                     };
-                    // succesfully cancelled the modify order
+                    if let Err(_) = self.create_buy_order(NewOrder {order_id: order.order_id,
+                        price: order.new_price,
+                        quantity: order.new_quantity, 
+                        is_buy_side: true, 
+                        security_id: order.security_id, 
+                        order_type: OrderType::Limit }) {
+                            // log the fail message for creating new order
+                        }
+                    // succesfully cancelled and created new order
+                    return Ok(())
+                } else {
+                    order_node.current_quantity = order.new_quantity;
+                    return Ok(());
                 }
-                if order.new_price != order_node.market_limit
             }
+            // log cancel order doesnt exist
+            return Ok(());
+        } else {
+            if self._ask.order_registry.order_exist(order.order_id){
+                let idx = self._ask.order_registry.get_idx(order.order_id);
+                let order_node = {
+                    let node = self._ask._order_pool[*idx].as_mut().unwrap();
+                    node
+                };
+                if order.change_side || order.new_price != order_node.market_limit || order.new_quantity > order_node.initial_quantity{
+                    if let Err(_) = self.cancel_order(CancelOrder { order_id: order.order_id, is_buy_side: order.is_buy_side }){
+                        // log the fail message - "failed to cancel the modify order"
+                    };
+                    if let Err(_) = self.create_buy_order(NewOrder {order_id: order.order_id,
+                        price: order.new_price,
+                        quantity: order.new_quantity, 
+                        is_buy_side: true, 
+                        security_id: order.security_id, 
+                        order_type: OrderType::Limit }) {
+                            // log the fail message for creating new order
+                        }
+                    // succesfully cancelled and created new order
+                    return Ok(())
+                } else {
+                    order_node.current_quantity = order.new_quantity;
+                    return Ok(())
+                }
+            }
+            // log cancel order doesnt exist
+            return Ok(());
         }
     }
 }

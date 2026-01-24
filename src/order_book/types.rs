@@ -25,7 +25,7 @@ pub struct NewOrder{
 
 #[derive(Debug)]
 pub enum OrderType{
-    Market(Option<f64>), // No cieling/floor price. leftover quantity is canceled
+    Market(Option<u32>), // No cieling/floor price. leftover quantity is canceled
     Limit
 }
 

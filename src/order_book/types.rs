@@ -32,7 +32,8 @@ pub enum OrderType{
 #[derive(Debug)]
 pub struct CancelOrder{
     pub order_id : Uuid,
-    pub is_buy_side : bool
+    pub is_buy_side : bool,
+    pub security_id : u32
 }
 
 #[derive(Debug)]

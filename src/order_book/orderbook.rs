@@ -5,13 +5,13 @@ use crate::order_book::types::{CancelOrder, ModifyOrder, OrderNode, OrderRegistr
 
 #[derive(Debug)]
 pub struct OrderBook{
-    pub asset_id : String,
+    pub security_id : u32,
     pub ask : HalfBook,
     pub bid : HalfBook
 }
 impl OrderBook {
-    pub fn new (name : String,) -> Self{
-        Self { asset_id : name , ask : HalfBook::new(), bid : HalfBook::new() }
+    pub fn new (security_id : u32,) -> Self{
+        Self { security_id , ask : HalfBook::new(), bid : HalfBook::new() }
     }
 
     #[instrument( // used for auto span creation & drop.
@@ -23,7 +23,7 @@ impl OrderBook {
         ),
         err
     )]
-    pub fn create_buy_order(&mut self, resting_order : OrderNode) -> Result<(), anyhow::Error>{
+    pub fn create_buy_order(&mut self, resting_order : OrderNode) -> Result<usize, anyhow::Error>{
         
         let mut order = resting_order;
         let order_id = order.order_id;
@@ -39,7 +39,7 @@ impl OrderBook {
                 if let Some(prev_order) = self.bid.order_pool.get_mut(price_level.tail).unwrap(){
                     prev_order.next = Some(free_index);
                 };
-                return Ok(());
+                return Ok(free_index);
             }
             else {
             self.bid.order_pool.push(Some(order));
@@ -49,7 +49,7 @@ impl OrderBook {
             if let Some(prev_order) = self.bid.order_pool.get_mut(price_level.tail).unwrap(){
                 prev_order.next = Some(new_tail);
             };
-            return Ok(());
+            return Ok(new_tail);
             }
         }
 
@@ -67,7 +67,7 @@ impl OrderBook {
             new_price_level.order_count += 1;
             new_price_level.total_quantity += order_quantity;
             self.bid.price_map.entry(price).or_insert(new_price_level);
-            return Ok(())
+            return Ok(free_index)
         }
         self.bid.order_pool.push(Some(order));
         let new_index = self.bid.order_pool.len()-1;
@@ -78,7 +78,7 @@ impl OrderBook {
         new_price_level.total_quantity += order_quantity;
         self.bid.price_map.entry(price).or_insert(new_price_level);
         
-        Ok(())
+        Ok(new_index)
     }
 
     #[instrument( 
@@ -90,7 +90,7 @@ impl OrderBook {
         ),
         err
     )]
-    pub fn create_sell_order(&mut self, resting_order : OrderNode) -> Result<(), anyhow::Error>{
+    pub fn create_sell_order(&mut self, resting_order : OrderNode) -> Result<usize, anyhow::Error>{
         let mut order = resting_order;
         let order_id = order.order_id;
         let order_quantity = order.current_quantity;
@@ -105,7 +105,7 @@ impl OrderBook {
                 if let Some(prev_order) = self.ask.order_pool.get_mut(price_level.tail).unwrap(){
                     prev_order.next = Some(free_index);
                 };
-                return Ok(());
+                return Ok(free_index);
             }
             else {
             self.ask.order_pool.push(Some(order));
@@ -115,7 +115,7 @@ impl OrderBook {
             if let Some(prev_order) = self.ask.order_pool.get_mut(price_level.tail).unwrap(){
                 prev_order.next = Some(new_tail);
             };
-            return Ok(());
+            return Ok(new_tail);
             }
         }
 
@@ -133,7 +133,7 @@ impl OrderBook {
             new_price_level.order_count += 1;
             new_price_level.total_quantity += order_quantity;
             self.ask.price_map.entry(price).or_insert(new_price_level);
-            return Ok(())
+            return Ok(free_index)
         }
         self.ask.order_pool.push(Some(order));
         let new_index = self.ask.order_pool.len()-1;
@@ -144,7 +144,7 @@ impl OrderBook {
         new_price_level.total_quantity += order_quantity;
         self.ask.price_map.entry(price).or_insert(new_price_level);
         
-        Ok(())
+        Ok(new_index)
     }
 
     #[instrument( 

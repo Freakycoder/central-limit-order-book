@@ -1,10 +1,8 @@
 use std::collections::HashMap;
-
 use uuid::Uuid;
 
 #[derive(Debug)]
 pub struct OrderNode{
-    pub order_id : Uuid,
     pub initial_quantity : u32,
     pub current_quantity : u32,
     pub market_limit : u32, // essentially the limit price at which the order gets executed
@@ -15,11 +13,12 @@ pub struct OrderNode{
 
 #[derive(Debug)]
 pub struct NewOrder{
-    pub order_id : Uuid, // changes, could be multiple order for different assets/security
+    pub engine_order_id : Uuid, // changes, could be multiple order for different assets/security
     pub price : u32, // need to check about the price ticks
-    pub quantity : u32,
+    pub initial_quantity : u32,
+    pub current_quantity : u32,
     pub is_buy_side : bool,
-    pub security_id : u32,
+    pub security_id : Uuid,
     pub order_type : OrderType
 }
 
@@ -31,18 +30,16 @@ pub enum OrderType{
 
 #[derive(Debug)]
 pub struct CancelOrder{
-    pub order_id : Uuid,
     pub is_buy_side : bool,
-    pub security_id : u32
+    pub order_index : usize
 }
 
 #[derive(Debug)]
 pub struct ModifyOrder{ //THINK ABOUT CANCEL AND NOT CANCEL SCENARIO
-    pub order_id : Uuid,
-    pub security_id : u32,
+    pub order_index : usize,
     pub is_buy_side : bool,
-    pub new_price : u32,
-    pub new_quantity : u32,
+    pub new_price : Option<u32>,
+    pub new_quantity : Option<u32>,
 }
 
 #[derive(Debug)]
@@ -75,5 +72,52 @@ pub struct PriceLevel{
     pub order_count : u32,
     pub total_quantity : u32
 }
+
+#[derive(Debug)]
+pub struct GlobalOrderRegistry{
+    pub map : HashMap<Uuid, OrderLocation>
+}
+
+impl GlobalOrderRegistry {
+    pub fn new(&self) -> Self{
+        Self { map: HashMap::new() }
+    }
+
+    pub fn get_details(&self, global_order_id :&Uuid) -> Option<&OrderLocation>{
+        let Some(order_details) = self.map.get(global_order_id)
+        else {
+            return None; // if its a early then we need to write return along with ';'
+        };
+        Some(order_details) // this is the final expression so no need return ;
+    }
+}
+
+#[derive(Debug)]
+pub struct OrderLocation{
+    pub security_id : Uuid,
+    pub is_buy_side : bool,
+    pub order_index : usize
+}
+
+#[derive(Debug)]
+pub enum ModifyOutcome{
+    Inplace,
+    Repriced {
+        new_price : u32,
+        old_initial_qty : u32,
+        old_current_qty : u32
+    },
+    Requantized {
+        old_price : u32,
+        new_initial_qty : u32,
+        old_current_qty : u32
+    },
+    Both {
+        new_price : u32,
+        new_initial_qty : u32,
+        old_current_qty : u32
+    }
+}
+
 
 

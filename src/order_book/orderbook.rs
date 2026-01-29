@@ -2,7 +2,7 @@ use std::{collections::{BTreeMap}};
 use tracing::instrument;
 use uuid::Uuid;
 
-use crate::order_book::types::{CancelOrder, ModifyOrder, OrderNode,PriceLevel};
+use crate::order_book::types::{CancelOrder, ModifyOrder, ModifyOutcome, OrderNode, PriceLevel};
 
 #[derive(Debug)]
 pub struct OrderBook{
@@ -202,49 +202,67 @@ impl OrderBook {
         ),
         err
     )]
-    pub fn modify_order(&mut self, order_id : Uuid, order : ModifyOrder) -> Result<Option<usize>, anyhow::Error>{
+    pub fn modify_order(&mut self, order_id : Uuid, order : ModifyOrder) -> Result<Option<ModifyOutcome>, anyhow::Error>{
         if order.is_buy_side{
-                let order_node = {
-                    let node = self.bid.order_pool[order.order_index].as_mut().unwrap();
-                    node
+                let (old_initial_qty, old_current_qty, old_price) = {
+                    let node = self.bid.order_pool[order.order_index].as_ref().unwrap();
+                    (node.initial_quantity, node.current_quantity, node.market_limit)
                 };
-                if order.new_price != order_node.market_limit || order.new_quantity > order_node.initial_quantity{
-                    if let Ok(_) = self.cancel_order(order_id ,CancelOrder { order_index : order.order_index, is_buy_side: order.is_buy_side,}){
-                        if let Ok(new_index) = self.create_buy_order(order_id, OrderNode {
-                            initial_quantity : order.new_quantity,
-                            current_quantity : order.new_quantity,
-                            market_limit : order.new_price,
-                            next : None,
-                            prev : None }){
-                                return Ok(Some(new_index))
+                if let Some(new_price) = order.new_price && let Some(new_qty) = order.new_quantity{
+                    if new_price != old_price{
+                        if let Ok(_) = self.cancel_order(order_id ,CancelOrder { order_index : order.order_index, is_buy_side: order.is_buy_side,}){
+                            return Ok(Some(ModifyOutcome::Both {new_price, new_initial_qty: new_qty, old_current_qty }));
+                            }
                         }
+                    return Ok(None);
+                } else if let Some(new_qty) = order.new_quantity  {
+                    if new_qty > old_initial_qty{
+                        if let Ok(_) = self.cancel_order(order_id ,CancelOrder { order_index : order.order_index, is_buy_side: order.is_buy_side,}){
+                            return Ok(Some(ModifyOutcome::Requantized {old_price, new_initial_qty: new_qty, old_current_qty }))
+                        }
+                        return Ok(None);
                     }
-                    return Ok(None)
+                    else {
+                        let order_node = self.bid.order_pool[order.order_index].as_mut().unwrap();
+                        order_node.initial_quantity = new_qty;
+                        return Ok(Some(ModifyOutcome::Inplace));
+                    }
                 } else {
-                    order_node.current_quantity = order.new_quantity;
-                    return Ok(None)
+                    if let Ok(_) = self.cancel_order(order_id ,CancelOrder { order_index : order.order_index, is_buy_side: order.is_buy_side,}){
+                        return Ok(Some(ModifyOutcome::Repriced {new_price : order.new_price.unwrap(), old_initial_qty, old_current_qty }));
+                    }
+                    return Ok(None);
                 }
         } else {
-                let order_node = {
-                    let node = self.ask.order_pool[order.order_index].as_mut().unwrap();
-                    node
+                let (old_initial_qty, old_current_qty, old_price) = {
+                    let node = self.ask.order_pool[order.order_index].as_ref().unwrap();
+                    (node.initial_quantity, node.current_quantity, node.market_limit)
                 };
-                if order.new_price != order_node.market_limit || order.new_quantity > order_node.initial_quantity{
-                    if let Ok(_) = self.cancel_order(order_id ,CancelOrder { order_index : order.order_index, is_buy_side: order.is_buy_side,}){
-                        if let Ok(new_index) = self.create_sell_order(order_id, OrderNode {
-                            initial_quantity : order.new_quantity,
-                            current_quantity : order.new_quantity,
-                            market_limit : order.new_price,
-                            next : None,
-                            prev : None })
-                        {
-                            return Ok(Some(new_index))
+
+                if let Some(new_price) = order.new_price && let Some(new_qty) = order.new_quantity{
+                    if new_price != old_price{
+                        if let Ok(_) = self.cancel_order(order_id ,CancelOrder { order_index : order.order_index, is_buy_side: order.is_buy_side,}){
+                           return Ok(Some(ModifyOutcome::Requantized {old_price, new_initial_qty: new_qty, old_current_qty }))
                         }
                     }
-                    return Ok(None)
-                } else {
-                    order_node.current_quantity = order.new_quantity;
-                    return Ok(None)
+                    return Ok(None);
+                } else if let Some(new_qty) = order.new_quantity  {
+                    if new_qty > old_initial_qty{
+                        if let Ok(_) = self.cancel_order(order_id ,CancelOrder { order_index : order.order_index, is_buy_side: order.is_buy_side,}){
+                            return Ok(Some(ModifyOutcome::Requantized { old_price, new_initial_qty: new_qty, old_current_qty }))
+                        }
+                        return Ok(None);
+                    }
+                    else {
+                        let order_node = self.ask.order_pool[order.order_index].as_mut().unwrap();
+                        order_node.initial_quantity = new_qty;
+                        return Ok(Some(ModifyOutcome::Inplace));
+                    }
+                }else {
+                    if let Ok(_) = self.cancel_order(order_id ,CancelOrder { order_index : order.order_index, is_buy_side: order.is_buy_side,}){
+                        return Ok(Some(ModifyOutcome::Repriced { new_price : order.new_price.unwrap(), old_initial_qty, old_current_qty }));
+                    }
+                    return Ok(None);
                 }
         }
     }

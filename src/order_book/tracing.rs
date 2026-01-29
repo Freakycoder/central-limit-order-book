@@ -22,4 +22,24 @@ impl Tracing {
                     orders_consumed = %orders_consumed
         )
     }
+    pub fn modify_span(
+        order_id: Uuid,
+        filled: bool,
+        reason: &'static str,
+        modify_reason: &'static str,
+        order_type: &'static str,
+        is_buy_side: bool,
+        levels_touched: u32,
+        orders_consumed: u32,
+    ) -> Span {
+        info_span!("modify", order_id = %order_id,
+                    filled = %filled,
+                    reason = %reason,
+                    modify_reason = %modify_reason,
+                    order_type = %order_type ,
+                    is_buy_side = %is_buy_side,
+                    levels_touched = %levels_touched,
+                    orders_consumed = %orders_consumed
+        )
+    }
 }

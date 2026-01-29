@@ -90,6 +90,13 @@ impl GlobalOrderRegistry {
         };
         Some(order_details) // this is the final expression so no need return ;
     }
+    pub fn delete(&mut self, global_order_id :&Uuid) -> Option<OrderLocation>{
+        self.map.remove(global_order_id)
+    }
+
+    pub fn insert(&mut self, global_order_id :Uuid, orderlocation : OrderLocation) -> Option<OrderLocation>{
+        self.map.insert(global_order_id, orderlocation)
+    }
 }
 
 #[derive(Debug)]
@@ -117,6 +124,12 @@ pub enum ModifyOutcome{
         new_initial_qty : u32,
         old_current_qty : u32
     }
+}
+
+#[derive(Debug)]
+pub enum CancelOutcome {
+    Success,
+    Failed
 }
 
 

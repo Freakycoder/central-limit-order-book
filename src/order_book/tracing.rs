@@ -44,4 +44,15 @@ impl Tracing {
                     orders_consumed = %orders_consumed
         )
     }
+
+    pub fn cancel_span(
+        order_id: Uuid,
+        success_status: bool,
+        reason: &'static str,
+    ) -> Span{
+        info_span!("cancel", order_id = %order_id,
+                    success_status = %success_status,
+                    reason = %reason,
+        )
+    }
 }

@@ -32,8 +32,7 @@ impl MatchingEngine {
         &mut self,
         global_order_id: Uuid,
     ) -> Option<(usize, bool,Uuid, &mut OrderBook)> {
-        let global_registry = GlobalOrderRegistry::new();
-        let order_location = global_registry.get_details(&global_order_id)?;
+        let order_location = self._global_registry.get_details(&global_order_id)?;
         let Some(book) = self._book.get_mut(&order_location.security_id) else {
             return None;
         };

@@ -5,7 +5,7 @@ use uuid::Uuid;
 pub struct OrderNode{
     pub initial_quantity : u32,
     pub current_quantity : u32,
-    pub market_limit : u32, // essentially the limit price at which the order gets executed
+    pub market_limit : u32, // essentially the limit or (market limit) price at which the order gets executed
     pub next : Option<usize>,
     pub prev : Option<usize>
 }
@@ -13,8 +13,8 @@ pub struct OrderNode{
 
 #[derive(Debug)]
 pub struct NewOrder{
-    pub engine_order_id : Uuid, // changes, could be multiple order for different assets/security
-    pub price : u32, // need to check about the price ticks
+    pub engine_order_id : Uuid,
+    pub price : Option<u32>, // price recieved over here are already in whole number
     pub initial_quantity : u32,
     pub current_quantity : u32,
     pub is_buy_side : bool,

@@ -4,7 +4,7 @@ use crate::order_book::{
         CancelOrder, CancelOutcome, GlobalOrderRegistry, ModifyOrder, ModifyOutcome, NewOrder, OrderLocation, OrderNode, OrderType
     },
 };
-use anyhow::Context;
+use anyhow::{Context, Error, anyhow};
 use std::collections::HashMap;
 use tracing::{Span, instrument};
 use uuid::Uuid;
@@ -28,12 +28,22 @@ impl MatchingEngine {
             order_id = %global_order_id
         )
     )]
-    pub fn get_orderbook(
+    fn get_orderbook(
         &mut self,
         global_order_id: Uuid,
+        span: &Span
     ) -> Option<(usize, bool,Uuid, &mut OrderBook)> {
-        let order_location = self._global_registry.get_details(&global_order_id)?;
+        let order_location = match self._global_registry.get_details(&global_order_id){
+            Some(location) => {
+                location
+            }
+            None => {
+                span.record("reason", "order not found in global registry");
+                return None;
+            }
+        };
         let Some(book) = self._book.get_mut(&order_location.security_id) else {
+            span.record("reason", "orderbook doesn't exist");
             return None;
         };
         Some((order_location.order_index, order_location.is_buy_side,order_location.security_id, book))
@@ -47,7 +57,7 @@ impl MatchingEngine {
         span: &Span,
     ) -> Result<(), anyhow::Error> {
         let (order_index, is_buy_side,security_id, orderbook) = self
-            .get_orderbook(global_order_id)
+            .get_orderbook(global_order_id, span)
             .context("Could not find the orderbook")?;
         if let Ok(potential_modfication) = orderbook.modify_order(
             global_order_id,
@@ -132,7 +142,7 @@ impl MatchingEngine {
 
     pub fn cancel(&mut self, global_order_id: Uuid, span: &Span) -> Result<CancelOutcome, anyhow::Error>{
         let (order_index, is_buy_side,_, orderbook) = self
-            .get_orderbook(global_order_id)
+            .get_orderbook(global_order_id, span)
             .context("Could not find the orderbook")?;
         if let Err(_) = orderbook.cancel_order(global_order_id, CancelOrder{is_buy_side, order_index}){
             span.record("reason", "orderbook cancellation failed");
@@ -149,9 +159,19 @@ impl MatchingEngine {
     }
 
     pub fn match_order(&mut self, order: NewOrder, span: &Span) -> Result<(), anyhow::Error> {
-        let (_, _,_, orderbook) = self
-            .get_orderbook(order.engine_order_id)
-            .context("Could not find the orderbook")?; // context converts option into result. ? changes the Err to anyhow::error and add extra context to the error return by .context
+        
+        let (_, _,_, orderbook) = match self.get_orderbook(order.engine_order_id, span){
+            Some(order_details) => {
+                order_details
+            },
+            None => {
+                span.record("order_id", order.engine_order_id.to_string());
+                span.record("filled", false);
+                span.record("order_type", if order.is_buy_side {"buy"} else { "sell"});
+                span.record("levels_touched", 0);        
+                return Err(anyhow!("orderbook not found"))
+            }
+        }; 
 
         if !order.is_buy_side {
             // for ASK order

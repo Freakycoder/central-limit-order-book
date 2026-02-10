@@ -210,6 +210,8 @@ impl MatchingEngine {
                                     span.record("filled", true);
                                 }
                             }
+                            span.record("reason", "orderbook is empty");
+                            span.record("filled", false);
                             remove_node = price_level.total_quantity == 0;
                         }
                         if remove_node {
@@ -260,6 +262,8 @@ impl MatchingEngine {
                                     span.record("filled", true);
                                 }
                             }
+                            span.record("reason", "orderbook is empty");
+                            span.record("filled", false);
                             remove_node = price_level.total_quantity == 0;
                         }
                         if remove_node {
@@ -309,6 +313,8 @@ impl MatchingEngine {
                                     fill_quantity = 0;
                                 }
                             }
+                            span.record("reason", "orderbook is empty");
+                            span.record("filled", false);
                             remove_node = price_level.total_quantity == 0;
                         }
                         if remove_node {
@@ -376,6 +382,8 @@ impl MatchingEngine {
                                     span.record("filled", true);
                                 }
                             }
+                            span.record("reason", "orderbook is empty");
+                            span.record("filled", false);
                             remove_node = price_level.total_quantity == 0;
                         }
                         if remove_node {
@@ -426,6 +434,8 @@ impl MatchingEngine {
                                     span.record("filled", true);
                                 }
                             }
+                            span.record("reason", "orderbook is empty");
+                            span.record("filled", false);
                             remove_node = price_level.total_quantity == 0;
                         }
                         if remove_node {
@@ -476,6 +486,8 @@ impl MatchingEngine {
                                     span.record("filled", false);
                                 }
                             }
+                            span.record("reason", "orderbook is empty");
+                            span.record("filled", false);
                             remove_node = price_level.total_quantity == 0;
                         }
                         if remove_node {

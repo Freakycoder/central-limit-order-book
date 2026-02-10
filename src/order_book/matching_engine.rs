@@ -167,8 +167,7 @@ impl MatchingEngine {
                 orderbook
             }
             None => {
-                let _ = self._book.insert(order.security_id, OrderBook::new(1)).unwrap();
-                self._book.get_mut(&order.security_id).unwrap()
+                self._book.entry(order.security_id).or_insert(OrderBook::new(1))
             }
         };
 

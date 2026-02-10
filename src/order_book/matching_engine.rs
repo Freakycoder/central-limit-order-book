@@ -4,7 +4,7 @@ use crate::order_book::{
         CancelOrder, CancelOutcome, GlobalOrderRegistry, ModifyOrder, ModifyOutcome, NewOrder, OrderLocation, OrderNode, OrderType
     },
 };
-use anyhow::{Context, Error, anyhow};
+use anyhow::{Context,anyhow};
 use std::collections::HashMap;
 use tracing::{Span, instrument};
 use uuid::Uuid;
@@ -25,8 +25,8 @@ impl MatchingEngine {
         name = "get_orderbook",
         skip(self),
         fields(
-            order_id = %global_order_id
-        )
+            order_id = %global_order_id,
+        ),
     )]
     fn get_orderbook(
         &mut self,
@@ -167,8 +167,8 @@ impl MatchingEngine {
             None => {
                 span.record("order_id", order.engine_order_id.to_string());
                 span.record("filled", false);
-                span.record("order_type", if order.is_buy_side {"buy"} else { "sell"});
-                span.record("levels_touched", 0);        
+                span.record("levels_touched", 0);
+                span.record("orders_consumed", 0);
                 return Err(anyhow!("orderbook not found"))
             }
         }; 

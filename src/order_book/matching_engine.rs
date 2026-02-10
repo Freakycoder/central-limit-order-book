@@ -473,6 +473,7 @@ impl MatchingEngine {
                                     first_order_node.current_quantity -= fill_quantity;
                                     price_level.total_quantity -= fill_quantity;
                                     fill_quantity = 0;
+                                    span.record("filled", false);
                                 }
                             }
                             remove_node = price_level.total_quantity == 0;

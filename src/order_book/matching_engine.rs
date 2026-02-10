@@ -160,6 +160,7 @@ impl MatchingEngine {
 
     pub fn match_order(&mut self, order: NewOrder, span: &Span) -> Result<(), anyhow::Error> {
         
+        let _gaurd = span.enter();
         let (_, _,_, orderbook) = match self.get_orderbook(order.engine_order_id, span){
             Some(order_details) => {
                 order_details
@@ -171,7 +172,7 @@ impl MatchingEngine {
                 span.record("orders_consumed", 0);
                 return Err(anyhow!("orderbook not found"))
             }
-        }; 
+        };
 
         if !order.is_buy_side {
             // for ASK order

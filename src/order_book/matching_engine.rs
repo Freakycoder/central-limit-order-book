@@ -4,7 +4,7 @@ use crate::order_book::{
         CancelOrder, CancelOutcome, GlobalOrderRegistry, ModifyOrder, ModifyOutcome, NewOrder, OrderLocation, OrderNode, OrderType
     },
 };
-use anyhow::{Context,anyhow};
+use anyhow::{Context};
 use std::collections::HashMap;
 use tracing::{Span, instrument};
 use uuid::Uuid;
@@ -161,16 +161,14 @@ impl MatchingEngine {
     pub fn match_order(&mut self, order: NewOrder, span: &Span) -> Result<(), anyhow::Error> {
         
         let _gaurd = span.enter();
-        let (_, _,_, orderbook) = match self.get_orderbook(order.engine_order_id, span){
-            Some(order_details) => {
-                order_details
-            },
+
+        let orderbook = match self._book.get_mut(&order.security_id){
+            Some(orderbook) => {
+                orderbook
+            }
             None => {
-                span.record("order_id", order.engine_order_id.to_string());
-                span.record("filled", false);
-                span.record("levels_touched", 0);
-                span.record("orders_consumed", 0);
-                return Err(anyhow!("orderbook not found"))
+                let _ = self._book.insert(order.security_id, OrderBook::new(1)).unwrap();
+                self._book.get_mut(&order.security_id).unwrap()
             }
         };
 
@@ -223,7 +221,7 @@ impl MatchingEngine {
                     span.record("order_type", "market");
                     span.record("is_buy_side", false);
                     span.record("levels_touched", levels_touched);
-                    span.record("order_consumed", orders_consumed);
+                    span.record("orders_consumed", orders_consumed);
                 }
                 OrderType::Market(market_limit) => {
                     let mut fill_quantity = order.initial_quantity;
@@ -273,7 +271,7 @@ impl MatchingEngine {
                     span.record("order_type", "market");
                     span.record("is_buy_side", false);
                     span.record("levels_touched", levels_touched);
-                    span.record("order_consumed", orders_consumed);
+                    span.record("orders_consumed", orders_consumed);
                 }
                 OrderType::Limit => {
                     let mut fill_quantity = order.initial_quantity;
@@ -338,7 +336,7 @@ impl MatchingEngine {
                     span.record("order_type", "limit");
                     span.record("is_buy_side", false);
                     span.record("levels_touched", levels_touched);
-                    span.record("order_consumed", orders_consumed);
+                    span.record("orders_consumed", orders_consumed);
                 }
             }
         } else {
@@ -389,7 +387,7 @@ impl MatchingEngine {
                     span.record("order_type", "market");
                     span.record("is_buy_side", true);
                     span.record("levels_touched", levels_touched);
-                    span.record("order_consumed", orders_consumed);
+                    span.record("orders_consumed", orders_consumed);
                 }
                 OrderType::Market(market_limit) => {
                     let mut fill_quantity = order.initial_quantity;
@@ -439,7 +437,7 @@ impl MatchingEngine {
                     span.record("order_type", "market");
                     span.record("is_buy_side", true);
                     span.record("levels_touched", levels_touched);
-                    span.record("order_consumed", orders_consumed);
+                    span.record("orders_consumed", orders_consumed);
                 }
                 OrderType::Limit => {
                     let mut fill_quantity = order.initial_quantity;
@@ -504,7 +502,7 @@ impl MatchingEngine {
                     span.record("order_type", "limit");
                     span.record("is_buy_side", true);
                     span.record("levels_touched", levels_touched);
-                    span.record("order_consumed", orders_consumed);
+                    span.record("orders_consumed", orders_consumed);
                 }
             }
         }

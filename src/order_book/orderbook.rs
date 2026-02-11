@@ -272,13 +272,13 @@ impl OrderBook {
         skip(self),
         err
     )]
-    pub fn depth(&self, levels_count : Option<usize>) -> Result<BookDepth, anyhow::Error>{
+    pub fn depth(&self, levels_count : Option<u32>) -> Result<BookDepth, anyhow::Error>{
 
         let ask_iter = self.ask.price_map.iter().rev();
         let bid_iter = self.bid.price_map.iter();
 
         let ask_depth : Vec<_> = match levels_count {
-            Some(n) => ask_iter.take(n)
+            Some(n) => ask_iter.take(n as usize)
             .map(|(price, price_level)| PriceLevelDepth {
                 price_level : *price,
                 quantity : price_level.total_quantity
@@ -290,7 +290,7 @@ impl OrderBook {
             }).collect()
         };
         let bid_depth = match levels_count {
-            Some(n) => bid_iter.take(n)
+            Some(n) => bid_iter.take(n as usize)
             .map(|(price, price_level)| PriceLevelDepth {
                 price_level : *price,
                 quantity : price_level.total_quantity

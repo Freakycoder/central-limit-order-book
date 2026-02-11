@@ -58,4 +58,14 @@ impl Tracing {
                     reason = %reason,
         )
     }
+    pub fn depth_span(
+        security_id: Empty,
+        status: Empty,
+        reason: Empty,
+    ) -> Span{
+        info_span!("depth", security_id = security_id,
+                    status = status,
+                    reason = reason,
+        )
+    }
 }

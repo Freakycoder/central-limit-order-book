@@ -267,52 +267,36 @@ impl OrderBook {
         }
     }
     
-    pub fn depth(&mut self, levels_count : Option<u32>) -> Result<BookDepth, anyhow::Error>{
-        let mut ask_depth  = Vec::new();
-        let mut bid_depth = Vec::new();
+    pub fn depth(&self, levels_count : Option<usize>) -> Result<BookDepth, anyhow::Error>{
 
-            if let Some(levels_count) = levels_count{
-                let mut ask_count = 0;
-                let mut bid_count = 0;
-                while ask_count != levels_count{
-                    let Some(price_node) = self.ask.price_map.last_entry() else {
-                        break;
-                    };
-                    let quantity = price_node.get().total_quantity;
-                    let price = price_node.key();
-                    ask_depth.push(PriceLevelDepth { price_level: *price, quantity });
-                    ask_count += 1;
-                }
-                while bid_count != levels_count {
-                    let Some(price_node) = self.bid.price_map.first_entry() else {
-                        break;
-                    };
-                    let quantity = price_node.get().total_quantity;
-                    let price = price_node.key();
-                    bid_depth.push(PriceLevelDepth { price_level: *price, quantity });
-                    bid_count += 1;
-                }
-                return Ok(BookDepth{bid_depth, ask_depth})
-            }
-            else {
-                loop {
-                    let Some(price_node) = self.ask.price_map.last_entry() else {
-                        break;
-                    };
-                    let quantity = price_node.get().total_quantity;
-                    let price = price_node.key();
-                    ask_depth.push(PriceLevelDepth { price_level: *price, quantity });
-                }
-                loop{
-                    let Some(price_node) = self.bid.price_map.first_entry() else {
-                        break;
-                    };
-                    let quantity = price_node.get().total_quantity;
-                    let price = price_node.key();
-                    bid_depth.push(PriceLevelDepth { price_level: *price, quantity });
-                }
-                return Ok(BookDepth { bid_depth, ask_depth });
-            }
+        let ask_iter = self.ask.price_map.iter().rev();
+        let bid_iter = self.bid.price_map.iter();
+
+        let ask_depth : Vec<_> = match levels_count {
+            Some(n) => ask_iter.take(n)
+            .map(|(price, price_level)| PriceLevelDepth {
+                price_level : *price,
+                quantity : price_level.total_quantity
+            })
+            .collect(),
+            None => ask_iter.map(|(price, price_level)| PriceLevelDepth {
+                price_level : *price,
+                quantity : price_level.total_quantity
+            }).collect()
+        };
+        let bid_depth = match levels_count {
+            Some(n) => bid_iter.take(n)
+            .map(|(price, price_level)| PriceLevelDepth {
+                price_level : *price,
+                quantity : price_level.total_quantity
+            })
+            .collect(),
+            None => bid_iter.map(|(price, price_level)| PriceLevelDepth {
+                price_level : *price,
+                quantity : price_level.total_quantity
+            }).collect()
+        };
+        Ok(BookDepth { bid_depth, ask_depth })
     }
 }
 

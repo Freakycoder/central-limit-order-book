@@ -31,24 +31,26 @@ impl OrderBook {
         let price = order.market_limit;
         
         if let Some(price_level) = self.bid.price_map.get_mut(&price){
-            order.prev = Some(price_level.tail);
+            order.prev = price_level.tail;
             if let Some(free_index) = self.bid.free_list.pop(){
                 self.bid.order_pool.insert(free_index, Some(order));
-                price_level.tail = free_index;
+                let prev_tail_idx = price_level.tail.unwrap();
+                price_level.tail = Some(free_index);
                 price_level.total_quantity += order_quantity;
                 price_level.order_count += 1;
-                if let Some(prev_order) = self.bid.order_pool.get_mut(price_level.tail).unwrap(){
-                    prev_order.next = Some(free_index);
-                };
+                    if let Some(prev_order) = self.bid.order_pool.get_mut(prev_tail_idx).unwrap(){
+                        prev_order.next = Some(free_index);
+                    };
                 return Ok(free_index);
             }
             else {
             self.bid.order_pool.push(Some(order));
             let new_tail = self.bid.order_pool.len() - 1;
-            price_level.tail = new_tail;
+            let pre_tail_idx = price_level.tail.unwrap();
+            price_level.tail = Some(new_tail);
             price_level.total_quantity += order_quantity;
             price_level.order_count += 1;
-            if let Some(prev_order) = self.bid.order_pool.get_mut(price_level.tail).unwrap(){
+            if let Some(prev_order) = self.bid.order_pool.get_mut(pre_tail_idx).unwrap(){
                 prev_order.next = Some(new_tail);
             };
             return Ok(new_tail);
@@ -56,15 +58,15 @@ impl OrderBook {
         }
 
         let mut new_price_level = PriceLevel{
-            head : 0,
-            tail : 0,
+            head : None,
+            tail : None,
             order_count : 0,
             total_quantity : 0
         };
         if let Some(free_index) = self.bid.free_list.pop(){
             self.bid.order_pool.insert(free_index, Some(order));
-            new_price_level.head = free_index;
-            new_price_level.tail = free_index;
+            new_price_level.head = Some(free_index);
+            new_price_level.tail = Some(free_index);
             new_price_level.order_count += 1;
             new_price_level.total_quantity += order_quantity;
             self.bid.price_map.entry(price).or_insert(new_price_level);
@@ -72,8 +74,8 @@ impl OrderBook {
         }
         self.bid.order_pool.push(Some(order));
         let new_index = self.bid.order_pool.len()-1;
-        new_price_level.head = new_index;
-        new_price_level.tail = new_index;
+        new_price_level.head = Some(new_index);
+        new_price_level.tail = Some(new_index);
         new_price_level.order_count += 1;
         new_price_level.total_quantity += order_quantity;
         self.bid.price_map.entry(price).or_insert(new_price_level);
@@ -96,13 +98,14 @@ impl OrderBook {
         let price = order.market_limit;
         
         if let Some(price_level) = self.ask.price_map.get_mut(&price){
-            order.prev = Some(price_level.tail);
+            order.prev = price_level.tail;
             if let Some(free_index) = self.ask.free_list.pop(){
                 self.ask.order_pool.insert(free_index, Some(order));
-                price_level.tail = free_index;
+                let prev_tail_idx = price_level.tail.unwrap();
+                price_level.tail = Some(free_index);
                 price_level.total_quantity += order_quantity;
                 price_level.order_count += 1;
-                if let Some(prev_order) = self.ask.order_pool.get_mut(price_level.tail).unwrap(){
+                if let Some(prev_order) = self.ask.order_pool.get_mut(prev_tail_idx).unwrap(){
                     prev_order.next = Some(free_index);
                 };
                 return Ok(free_index);
@@ -110,10 +113,11 @@ impl OrderBook {
             else {
             self.ask.order_pool.push(Some(order));
             let new_tail = self.ask.order_pool.len() - 1;
-            price_level.tail = new_tail;
+            let prev_tail_idx = price_level.tail.unwrap();
+            price_level.tail = Some(new_tail);
             price_level.total_quantity += order_quantity;
             price_level.order_count += 1;
-            if let Some(prev_order) = self.ask.order_pool.get_mut(price_level.tail).unwrap(){
+            if let Some(prev_order) = self.ask.order_pool.get_mut(prev_tail_idx).unwrap(){
                 prev_order.next = Some(new_tail);
             };
             return Ok(new_tail);
@@ -121,15 +125,15 @@ impl OrderBook {
         }
 
         let mut new_price_level = PriceLevel{
-            head : 0,
-            tail : 0,
+            head : None,
+            tail : None,
             order_count : 0,
             total_quantity : 0
         };
         if let Some(free_index) = self.ask.free_list.pop(){
             self.ask.order_pool.insert(free_index, Some(order));
-            new_price_level.head = free_index;
-            new_price_level.tail = free_index;
+            new_price_level.head = Some(free_index);
+            new_price_level.tail = Some(free_index);
             new_price_level.order_count += 1;
             new_price_level.total_quantity += order_quantity;
             self.ask.price_map.entry(price).or_insert(new_price_level);
@@ -137,8 +141,8 @@ impl OrderBook {
         }
         self.ask.order_pool.push(Some(order));
         let new_index = self.ask.order_pool.len()-1;
-        new_price_level.head = new_index;
-        new_price_level.tail = new_index;
+        new_price_level.head = Some(new_index);
+        new_price_level.tail = Some(new_index);
         new_price_level.order_count += 1;
         new_price_level.total_quantity += order_quantity;
         self.ask.price_map.entry(price).or_insert(new_price_level);

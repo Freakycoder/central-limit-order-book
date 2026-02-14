@@ -67,8 +67,8 @@ impl OrderRegistry {
 
 #[derive(Debug)]
 pub struct PriceLevel{
-    pub head : usize,
-    pub tail : usize,
+    pub head : Option<usize>,
+    pub tail : Option<usize>,
     pub order_count : u32,
     pub total_quantity : u32
 }

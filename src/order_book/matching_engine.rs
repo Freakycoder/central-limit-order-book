@@ -204,35 +204,38 @@ impl MatchingEngine {
                             };
                             let price_level = price_node.get_mut();
                             while price_level.total_quantity > 0 && fill_quantity > 0 {
-                                let head_idx = price_level.head;
-                                let first_order_node =
-                                    orderbook.bid.order_pool[head_idx].as_mut().unwrap();
-                                if fill_quantity >= first_order_node.current_quantity {
-                                    fill_quantity -= first_order_node.current_quantity;
-                                    price_level.total_quantity -= first_order_node.current_quantity;
-                                    let next = first_order_node.next;
-                                    orderbook.bid.order_pool[head_idx] = None;
-                                    orderbook.bid.free_list.push(head_idx);
-                                    orders_consumed += 1;
-                                    if let Some(next_order_idx) = next {
-                                        price_level.head = next_order_idx;
+                                if let Some(head_idx) = price_level.head{
+
+                                    let first_order_node =
+                                        orderbook.bid.order_pool[head_idx].as_mut().unwrap();
+                                    if fill_quantity >= first_order_node.current_quantity {
+                                        fill_quantity -= first_order_node.current_quantity;
+                                        price_level.total_quantity -= first_order_node.current_quantity;
+                                        let next = first_order_node.next;
+                                        orderbook.bid.order_pool[head_idx] = None;
+                                        orderbook.bid.free_list.push(head_idx);
+                                        orders_consumed += 1;
+                                        if let Some(next_order_idx) = next {
+                                            price_level.head = Some(next_order_idx);
+                                        } else {
+                                            span.record("reason", "exhausted");
+                                            price_level.total_quantity = 0;
+                                            break;
+                                        }
                                     } else {
-                                        span.record("reason", "exhausted");
-                                        break;
+                                        first_order_node.current_quantity -= fill_quantity;
+                                        price_level.total_quantity -= fill_quantity;
+                                        fill_quantity = 0;
+                                        span.record("filled", true);
                                     }
-                                } else {
-                                    first_order_node.current_quantity -= fill_quantity;
-                                    price_level.total_quantity -= fill_quantity;
-                                    fill_quantity = 0;
-                                    span.record("filled", true);
+                                }else {
+                                    break;
                                 }
                             }
-                            span.record("reason", "orderbook is empty");
-                            span.record("filled", false);
                             remove_node = price_level.total_quantity == 0;
                         }
                         if remove_node {
-                            orderbook.bid.price_map.pop_first();
+                            orderbook.bid.price_map.pop_last();
                             levels_touched += 1;
                         }
                     }
@@ -256,35 +259,38 @@ impl MatchingEngine {
                             }
                             let price_level = price_node.get_mut();
                             while price_level.total_quantity > 0 && fill_quantity > 0 {
-                                let head_idx = price_level.head;
-                                let first_order_node =
-                                    orderbook.bid.order_pool[head_idx].as_mut().unwrap();
-                                if fill_quantity >= first_order_node.current_quantity {
-                                    fill_quantity -= first_order_node.current_quantity;
-                                    price_level.total_quantity -= first_order_node.current_quantity;
-                                    let next = first_order_node.next;
-                                    orderbook.bid.order_pool[head_idx] = None;
-                                    orderbook.bid.free_list.push(head_idx);
-                                    orders_consumed += 1;
-                                    if let Some(next_order_idx) = next {
-                                        price_level.head = next_order_idx;
+                                if let Some(head_idx) = price_level.head{
+
+                                    let first_order_node =
+                                        orderbook.bid.order_pool[head_idx].as_mut().unwrap();
+                                    if fill_quantity >= first_order_node.current_quantity {
+                                        fill_quantity -= first_order_node.current_quantity;
+                                        price_level.total_quantity -= first_order_node.current_quantity;
+                                        let next = first_order_node.next;
+                                        orderbook.bid.order_pool[head_idx] = None;
+                                        orderbook.bid.free_list.push(head_idx);
+                                        orders_consumed += 1;
+                                        if let Some(next_order_idx) = next {
+                                            price_level.head = Some(next_order_idx);
+                                        } else {
+                                            span.record("reason", "exhausted");
+                                            price_level.total_quantity = 0;
+                                            break;
+                                        }
                                     } else {
-                                        span.record("reason", "exhausted");
-                                        break;
+                                        first_order_node.current_quantity -= fill_quantity;
+                                        price_level.total_quantity -= fill_quantity;
+                                        fill_quantity = 0;
+                                        span.record("filled", true);
                                     }
-                                } else {
-                                    first_order_node.current_quantity -= fill_quantity;
-                                    price_level.total_quantity -= fill_quantity;
-                                    fill_quantity = 0;
-                                    span.record("filled", true);
+                                }else {
+                                    break;
                                 }
                             }
-                            span.record("reason", "orderbook is empty");
-                            span.record("filled", false);
                             remove_node = price_level.total_quantity == 0;
                         }
                         if remove_node {
-                            orderbook.bid.price_map.pop_first();
+                            orderbook.bid.price_map.pop_last();
                             levels_touched += 1;
                         }
                     }
@@ -308,33 +314,36 @@ impl MatchingEngine {
                             }
                             let price_level = price_node.get_mut();
                             while price_level.total_quantity > 0 && fill_quantity > 0 {
-                                let head_idx = price_level.head;
-                                let first_order_node = orderbook.bid.order_pool[head_idx].as_mut().unwrap();
-                                if fill_quantity >= first_order_node.current_quantity {
-                                    fill_quantity -= first_order_node.current_quantity;
-                                    price_level.total_quantity -= first_order_node.current_quantity;
-                                    let next = first_order_node.next;
-                                    orderbook.bid.order_pool[head_idx] = None;
-                                    orderbook.bid.free_list.push(head_idx);
-                                    orders_consumed += 1;
-                                    if let Some(next_order_idx) = next {
-                                        price_level.head = next_order_idx;
+                                if let Some(head_idx) = price_level.head{
+                                    let first_order_node = orderbook.bid.order_pool[head_idx].as_mut().unwrap();
+                                    if fill_quantity >= first_order_node.current_quantity {
+                                        fill_quantity -= first_order_node.current_quantity;
+                                        price_level.total_quantity -= first_order_node.current_quantity;
+                                        let next = first_order_node.next;
+                                        orderbook.bid.order_pool[head_idx] = None;
+                                        orderbook.bid.free_list.push(head_idx);
+                                        orders_consumed += 1;
+                                        if let Some(next_order_idx) = next {
+                                            price_level.head = Some(next_order_idx);
+                                        } else {
+                                            span.record("reason", "partially_filled");
+                                            price_level.total_quantity = 0;
+                                            break;
+                                        }
                                     } else {
-                                        span.record("reason", "partially_filled");
-                                        break;
+                                        first_order_node.current_quantity -= fill_quantity;
+                                        price_level.total_quantity -= fill_quantity;
+                                        fill_quantity = 0;
+                                        span.record("filled", true);
                                     }
-                                } else {
-                                    first_order_node.current_quantity -= fill_quantity;
-                                    price_level.total_quantity -= fill_quantity;
-                                    fill_quantity = 0;
+                                }else {
+                                    break;
                                 }
                             }
-                            span.record("reason", "orderbook is empty");
-                            span.record("filled", false);
                             remove_node = price_level.total_quantity == 0;
                         }
                         if remove_node {
-                            orderbook.bid.price_map.pop_first();
+                            orderbook.bid.price_map.pop_last();
                             levels_touched += 1;
                         }
                     }
@@ -375,35 +384,38 @@ impl MatchingEngine {
                             };
                             let price_level = price_node.get_mut();
                             while price_level.total_quantity > 0 && fill_quantity > 0 {
-                                let head_idx = price_level.head;
-                                let first_order_node =
-                                    orderbook.ask.order_pool[head_idx].as_mut().unwrap();
-                                if fill_quantity >= first_order_node.current_quantity {
-                                    fill_quantity -= first_order_node.current_quantity;
-                                    price_level.total_quantity -= first_order_node.current_quantity;
-                                    let next = first_order_node.next;
-                                    orderbook.ask.order_pool[head_idx] = None;
-                                    orderbook.ask.free_list.push(head_idx);
-                                    orders_consumed += 1;
-                                    if let Some(next_order_idx) = next {
-                                        price_level.head = next_order_idx;
+                                if let Some(head_idx) = price_level.head{
+                                    let first_order_node =
+                                        orderbook.ask.order_pool[head_idx].as_mut().unwrap();
+                                    if fill_quantity >= first_order_node.current_quantity {
+                                        fill_quantity -= first_order_node.current_quantity;
+                                        price_level.total_quantity -= first_order_node.current_quantity;
+                                        let next = first_order_node.next;
+                                        orderbook.ask.order_pool[head_idx] = None;
+                                        orderbook.ask.free_list.push(head_idx);
+                                        orders_consumed += 1;
+                                        if let Some(next_order_idx) = next {
+                                            price_level.head = Some(next_order_idx);
+                                        } else {
+                                            span.record("reason", "exhausted");
+                                            price_level.total_quantity = 0;
+                                            break;
+                                        }
                                     } else {
-                                        span.record("reason", "exhausted");
-                                        break;
+                                        first_order_node.current_quantity -= fill_quantity;
+                                        price_level.total_quantity -= fill_quantity;
+                                        fill_quantity = 0;
+                                        span.record("filled", true);
                                     }
-                                } else {
-                                    first_order_node.current_quantity -= fill_quantity;
-                                    price_level.total_quantity -= fill_quantity;
-                                    fill_quantity = 0;
-                                    span.record("filled", true);
+                                }
+                                else {
+                                    break;
                                 }
                             }
-                            span.record("reason", "orderbook is empty");
-                            span.record("filled", false);
                             remove_node = price_level.total_quantity == 0;
                         }
                         if remove_node {
-                            orderbook.bid.price_map.pop_last();
+                            orderbook.bid.price_map.pop_first();
                             levels_touched += 1;
                         }
                     }
@@ -427,35 +439,40 @@ impl MatchingEngine {
                             }
                             let price_level = price_node.get_mut();
                             while price_level.total_quantity > 0 && fill_quantity > 0 {
-                                let head_idx = price_level.head;
-                                let first_order_node =
-                                    orderbook.ask.order_pool[head_idx].as_mut().unwrap();
-                                if fill_quantity >= first_order_node.current_quantity {
-                                    fill_quantity -= first_order_node.current_quantity;
-                                    price_level.total_quantity -= first_order_node.current_quantity;
-                                    let next = first_order_node.next;
-                                    orderbook.ask.order_pool[head_idx] = None;
-                                    orderbook.ask.free_list.push(head_idx);
-                                    orders_consumed += 1;
-                                    if let Some(next_order_idx) = next {
-                                        price_level.head = next_order_idx;
+                                let head_pointer = price_level.head;
+                                if let Some(head_idx) = head_pointer{
+                                    let first_order_node =
+                                        orderbook.ask.order_pool[head_idx].as_mut().unwrap();
+                                    if fill_quantity >= first_order_node.current_quantity {
+                                        fill_quantity -= first_order_node.current_quantity;
+                                        price_level.total_quantity -= first_order_node.current_quantity;
+                                        let next = first_order_node.next;
+                                        orderbook.ask.order_pool[head_idx] = None;
+                                        orderbook.ask.free_list.push(head_idx);
+                                        orders_consumed += 1;
+                                        if let Some(next_order_idx) = next {
+                                            price_level.head = Some(next_order_idx);
+                                        } else {
+                                            span.record("reason", "exhausted");
+                                            price_level.head = None;
+                                            price_level.total_quantity = 0;
+                                            break;
+                                        }
                                     } else {
-                                        span.record("reason", "exhausted");
-                                        break;
+                                        first_order_node.current_quantity -= fill_quantity;
+                                        price_level.total_quantity -= fill_quantity;
+                                        fill_quantity = 0;
+                                        span.record("filled", true);
                                     }
-                                } else {
-                                    first_order_node.current_quantity -= fill_quantity;
-                                    price_level.total_quantity -= fill_quantity;
-                                    fill_quantity = 0;
-                                    span.record("filled", true);
+                                }
+                                else {
+                                    break;
                                 }
                             }
-                            span.record("reason", "orderbook is empty");
-                            span.record("filled", false);
                             remove_node = price_level.total_quantity == 0;
                         }
                         if remove_node {
-                            orderbook.bid.price_map.pop_last();
+                            orderbook.bid.price_map.pop_first();
                             levels_touched += 1;
                         }
                     }
@@ -479,35 +496,37 @@ impl MatchingEngine {
                             }
                             let price_level = price_node.get_mut();
                             while price_level.total_quantity > 0 && fill_quantity > 0 {
-                                let head_idx = price_level.head;
-                                let first_order_node =
-                                    orderbook.ask.order_pool[head_idx].as_mut().unwrap();
-                                if fill_quantity >= first_order_node.current_quantity {
-                                    fill_quantity -= first_order_node.current_quantity;
-                                    price_level.total_quantity -= first_order_node.current_quantity;
-                                    let next = first_order_node.next;
-                                    orderbook.ask.order_pool[head_idx] = None;
-                                    orderbook.ask.free_list.push(head_idx);
-                                    orders_consumed += 1;
-                                    if let Some(next_order_idx) = next {
-                                        price_level.head = next_order_idx;
+                                if let Some(head_idx) = price_level.head{
+
+                                    let first_order_node = orderbook.ask.order_pool[head_idx].as_mut().unwrap();
+                                    if fill_quantity >= first_order_node.current_quantity {
+                                        fill_quantity -= first_order_node.current_quantity;
+                                        price_level.total_quantity -= first_order_node.current_quantity;
+                                        let next = first_order_node.next;
+                                        orderbook.ask.order_pool[head_idx] = None;
+                                        orderbook.ask.free_list.push(head_idx);
+                                        orders_consumed += 1;
+                                        if let Some(next_order_idx) = next {
+                                            price_level.head = Some(next_order_idx);
+                                        } else {
+                                            span.record("reason", "partially_filled");
+                                            price_level.total_quantity = 0;
+                                            break;
+                                        }
                                     } else {
-                                        span.record("reason", "partially_filled");
-                                        break;
+                                        first_order_node.current_quantity -= fill_quantity;
+                                        price_level.total_quantity -= fill_quantity;
+                                        fill_quantity = 0;
+                                        span.record("filled", true);
                                     }
-                                } else {
-                                    first_order_node.current_quantity -= fill_quantity;
-                                    price_level.total_quantity -= fill_quantity;
-                                    fill_quantity = 0;
-                                    span.record("filled", false);
+                                }else {
+                                    break;
                                 }
                             }
-                            span.record("reason", "orderbook is empty");
-                            span.record("filled", false);
                             remove_node = price_level.total_quantity == 0;
                         }
                         if remove_node {
-                            orderbook.bid.price_map.pop_last();
+                            orderbook.bid.price_map.pop_first();
                             levels_touched += 1;
                         }
                     }

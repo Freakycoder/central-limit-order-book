@@ -199,7 +199,7 @@ impl MatchingEngine {
                     while fill_quantity > 0 {
                         let remove_node: bool;
                         {
-                            let Some(mut price_node) = orderbook.bid.price_map.first_entry() else {
+                            let Some(mut price_node) = orderbook.bid.price_map.last_entry() else {
                                 break;
                             };
                             let price_level = price_node.get_mut();
@@ -248,10 +248,10 @@ impl MatchingEngine {
                     while fill_quantity > 0 {
                         let remove_node: bool;
                         {
-                            let Some(mut price_node) = orderbook.bid.price_map.first_entry() else {
+                            let Some(mut price_node) = orderbook.bid.price_map.last_entry() else {
                                 break;
                             };
-                            if market_limit.unwrap() >= *price_node.key() {
+                            if market_limit.unwrap() > *price_node.key() {
                                 break;
                             }
                             let price_level = price_node.get_mut();
@@ -300,17 +300,16 @@ impl MatchingEngine {
                     while fill_quantity > 0 {
                         let remove_node: bool;
                         {
-                            let Some(mut price_node) = orderbook.bid.price_map.first_entry() else {
+                            let Some(mut price_node) = orderbook.bid.price_map.last_entry() else {
                                 break;
                             };
-                            if order.price >= Some(*price_node.key()) {
+                            if order.price > Some(*price_node.key()) {
                                 break;
                             }
                             let price_level = price_node.get_mut();
                             while price_level.total_quantity > 0 && fill_quantity > 0 {
                                 let head_idx = price_level.head;
-                                let first_order_node =
-                                    orderbook.bid.order_pool[head_idx].as_mut().unwrap();
+                                let first_order_node = orderbook.bid.order_pool[head_idx].as_mut().unwrap();
                                 if fill_quantity >= first_order_node.current_quantity {
                                     fill_quantity -= first_order_node.current_quantity;
                                     price_level.total_quantity -= first_order_node.current_quantity;
@@ -371,7 +370,7 @@ impl MatchingEngine {
                     while fill_quantity > 0 {
                         let remove_node: bool;
                         {
-                            let Some(mut price_node) = orderbook.ask.price_map.last_entry() else {
+                            let Some(mut price_node) = orderbook.ask.price_map.first_entry() else {
                                 break;
                             };
                             let price_level = price_node.get_mut();
@@ -420,10 +419,10 @@ impl MatchingEngine {
                     while fill_quantity > 0 {
                         let remove_node: bool;
                         {
-                            let Some(mut price_node) = orderbook.ask.price_map.last_entry() else {
+                            let Some(mut price_node) = orderbook.ask.price_map.first_entry() else {
                                 break;
                             };
-                            if market_limit.unwrap() <= *price_node.key() {
+                            if market_limit.unwrap() < *price_node.key() {
                                 break;
                             }
                             let price_level = price_node.get_mut();
@@ -472,10 +471,10 @@ impl MatchingEngine {
                     while fill_quantity > 0 {
                         let remove_node: bool;
                         {
-                            let Some(mut price_node) = orderbook.ask.price_map.last_entry() else {
+                            let Some(mut price_node) = orderbook.ask.price_map.first_entry() else {
                                 break;
                             };
-                            if order.price <= Some(*price_node.key()) {
+                            if order.price < Some(*price_node.key()) {
                                 break;
                             }
                             let price_level = price_node.get_mut();

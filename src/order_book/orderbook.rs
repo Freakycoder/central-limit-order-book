@@ -100,6 +100,8 @@ impl OrderBook {
             if let Some(free_index) = self.ask.free_list.pop(){
                 self.ask.order_pool.insert(free_index, Some(order));
                 price_level.tail = free_index;
+                price_level.total_quantity += order_quantity;
+                price_level.order_count += 1;
                 if let Some(prev_order) = self.ask.order_pool.get_mut(price_level.tail).unwrap(){
                     prev_order.next = Some(free_index);
                 };
@@ -109,6 +111,8 @@ impl OrderBook {
             self.ask.order_pool.push(Some(order));
             let new_tail = self.ask.order_pool.len() - 1;
             price_level.tail = new_tail;
+            price_level.total_quantity += order_quantity;
+            price_level.order_count += 1;
             if let Some(prev_order) = self.ask.order_pool.get_mut(price_level.tail).unwrap(){
                 prev_order.next = Some(new_tail);
             };
